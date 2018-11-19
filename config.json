@@ -1,0 +1,18 @@
+{
+    "channels": [
+        { "id": 16, "detector": "pos", "channel": "mcp" },
+        { "id": 17, "detector": "pos", "channel": "u1" },
+        { "id": 18, "detector": "pos", "channel": "u2" },
+        { "id": 19, "detector": "pos", "channel": "v1" },
+        { "id": 20, "detector": "pos", "channel": "v2" },
+        { "id": 21, "detector": "pos", "channel": "w1" },
+        { "id": 22, "detector": "pos", "channel": "w2" },
+        { "id": 24, "detector": "neg", "channel": "mcp" },
+        { "id": 25, "detector": "neg", "channel": "u1" },
+        { "id": 26, "detector": "neg", "channel": "u2" },
+        { "id": 27, "detector": "neg", "channel": "v1" },
+        { "id": 28, "detector": "neg", "channel": "v2" },
+        { "id": 29, "detector": "neg", "channel": "w1" },
+        { "id": 30, "detector": "neg", "channel": "w2" }
+    ]
+}

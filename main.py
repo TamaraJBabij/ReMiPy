@@ -13,7 +13,7 @@ from scipy.optimize import curve_fit
 from scipy import asarray as ar,exp
 from scipy.stats import norm
 
-Event = namedtuple('Event', ['t1', 't2', 'timesum', 'c1', 'c2', 'groupNumber', 'detector'])
+Event = namedtuple('Event', ['t1', 't2', 'timesum', 'c1', 'c2', 'groupNumber'])
 
 config = configLoader.load("config.json")
 print(config)
@@ -47,9 +47,8 @@ def calculateTimeSums(data, detectorId):
     a_u = np.amax(n)
     x0_u = bins[np.argmax(n)]
     sigma_u = 2
-    popt,pcov = curve_fit(gaus,bins,n,p0=[a_u,x0_u,sigma_u])
-    plt.plot(bins, gaus(bins,*popt), 'ro:')
-    uFit = [popt]
+    uFit,pcov = curve_fit(gaus,bins,n,p0=[a_u,x0_u,sigma_u])
+    plt.plot(bins, gaus(bins,*uFit), 'ro:')
     plt.show()
     
     #V DATA
@@ -62,9 +61,9 @@ def calculateTimeSums(data, detectorId):
     a_v = np.amax(n)
     x0_v = bins[np.argmax(n)]
     sigma_v = 2
-    popt,pcov = curve_fit(gaus,bins,n,p0=[a_v,x0_v,sigma_v])
-    plt.plot(bins, gaus(bins,*popt), 'ro:')
-    vFit = [popt]
+    vFit,pcov = curve_fit(gaus,bins,n,p0=[a_v,x0_v,sigma_v])
+    plt.plot(bins, gaus(bins,*vFit), 'ro:')
+    
     plt.show()
     
     #W DATA
@@ -76,12 +75,34 @@ def calculateTimeSums(data, detectorId):
     a_w = np.amax(n)
     x0_w = bins[np.argmax(n)]
     sigma_w = 2
-    popt,pcov = curve_fit(gaus,bins,n,p0=[a_w,x0_w,sigma_w])
-    plt.plot(bins, gaus(bins,*popt), 'ro:')
-    wFit = [popt]
+    wFit,pcov = curve_fit(gaus,bins,n,p0=[a_w,x0_w,sigma_w])
+    plt.plot(bins, gaus(bins,*wFit), 'ro:')
+    
     plt.show()
-    return [np.array(uData), np.array(vData), np.array(wData)], [uFit, vFit, wFit]
+    return (uFit, vFit, wFit)
 
+
+def calculateEvents(data, uFit, vFit, wFit):  
+    u_upper = uFit[1]+3*(uFit[-1]) 
+    u_lower = uFit[1]-3*(uFit[-1])
+    v_upper = vFit[1]+3*(vFit[-1]) 
+    v_lower = vFit[1]-3*(vFit[-1])
+    w_upper = wFit[1]+3*(wFit[-1]) 
+    w_lower = wFit[1]-3*(wFit[-1])
+    
+    #Calculates the time sums for each layer of the positive or negative detector
+    groupByNumber = data.groupby(b'GroupNumber')
+    #print(groupByNumber)
+    groups = { name: groupByNumber.get_group(name).groupby('channel') for (name, _) in groupByNumber }
+    #print(groups)
+    uData = calculateChannelEvents(groups, config.channelId.u1, config.channelId.u2, u_lower, u_upper)
+    vData = calculateChannelEvents(groups, config.channelId.v1, config.channelId.v2, v_lower, v_upper)
+    wData = calculateChannelEvents(groups, config.channelId.w1, config.channelId.w2, w_lower, w_upper)
+    return uData, vData, wData
+    
+def calculateChannelEvents(data, channel1, channel2, lowerTs, upperTs):
+    return list(itertools.chain.from_iterable( calculateGroupEvents(data, channel1, channel2, groupNumber, lowerTs, upperTs) 
+        for groupNumber, data in data.items() if groupNumber < 10000 ))
 
 def calculateChannelTimesums(data, channel1, channel2):
     #Calculates all possible combinations of channel1 + channel2 within a group
@@ -100,25 +121,47 @@ def calculateGroupTimesums(groupData, channel1, channel2, groupNumber):
             for t1 in data1.as_matrix(["time_ns"])
             for t2 in data2.as_matrix(["time_ns"])
             for m in mcpData.as_matrix(["time_ns"])]
+        #print(diffs)
         return [d1 + d2 for d1, d2 in diffs if d1 > 0 and d1 < 500 and d2 > 0 and d2 < 500]
     except:
         return []
     
-def calculateGroupEvents(groupData, channel1, channel2, detectorId, groupNumber):
+def isValidEvent(d1, d2, lowerTs, upperTs):
+    return d1 > 0 and d1 < 500 and d2 > 0 and d2 < 500 and (d1 + d2) > lowerTs and (d1 + d2) < upperTs
+    
+def calculateGroupEvents(groupData, channel1, channel2, groupNumber, lowerTs, upperTs):
     try:
         data1 = groupData.get_group(channel1)
         data2 = groupData.get_group(channel2)
-        return [Event(t1, t2, t1 + t2, channel1, channel2, groupNumber, detectorId)
-            for t1 in data1.as_matrix(["time_ns"]) for t2 in data2.as_matrix(["time_ns"])]
+        mcpData = groupData.get_group(config.channelId.mcp)
+        diffs = [(t1[0] - m[0], t2[0] - m[0]) 
+            for t1 in data1.as_matrix(["time_ns"])
+            for t2 in data2.as_matrix(["time_ns"])
+            for m in mcpData.as_matrix(["time_ns"])]
+        #EVENTS SHOULD INCLUDE DETECTOR BUT ITS BRoKEN fOR NOW,
+        #IMPLEMENT WHEN ANALYSING ALL DATA
+        return [Event(d1, d2, d1 + d2, channel1, channel2, groupNumber)
+            for d1, d2 in diffs if isValidEvent(d1, d2, lowerTs, upperTs)]
     except:
         return []
     
+    #Event = namedtuple('Event', ['t1', 't2', 'timesum', 'c1', 'c2', 'groupNumber', 'detector'])
+
+def convertLayerInformation(uEevents, vEvents, wEvents):
+    #Want to process information for each array in xEvents
+    
+    return []
+
+    
 #%%
 #Calculate the timesums for each channel
-negSums, fitData = calculateTimeSums(negData, config.detectorId.neg)
+uFit, vFit, wFit = calculateTimeSums(negData, config.detectorId.neg)
 print("Peak Height, Peak position, Standard Deviation")
-print(fitData)
-
+print(np.array([uFit, vFit, wFit]))
+#Find the limits of our timesums
+#For now this is within 3 sd of our timesums
 #%%
 #Now we want to calculate the events
-#Make sure that the layer information is within 3 standard deviations of the timesum
+#Make sure that the layer information is within 3 standard deviations of the timesum    
+    
+uEvents, vEvents, wEvents = calculateEvents(negData, uFit, vFit, wFit)

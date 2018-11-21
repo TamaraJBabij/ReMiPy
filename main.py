@@ -13,8 +13,9 @@ from scipy.optimize import curve_fit
 from scipy import asarray as ar,exp
 from scipy.stats import norm
 
-Event = namedtuple('Event', ['u', 'v', 'w', 'timesum', 'c1', 'c2', 'groupNumber'])
-
+#Event = namedtuple('Event', ['u', 'v', 'w', 'timesum', 'c1', 'c2', 'groupNumber'])
+Event = namedtuple('Event', ['u', 'v', 'w', 'groupNumber'])
+#neg_pitch = namedtuple('Pitch', ['u', 'v', 'w'])
 config = configLoader.load("config.json")
 print(config)
 
@@ -27,16 +28,18 @@ groupByDetector = fullData.groupby("detector")
 negData = groupByDetector.get_group(config.detectorId.neg)
 
 #Negative Detector Constants as given by Dans calibration software
-U_neg_pitch = 0.3035*2 
-V_neg_pitch = 0.2959*2
-W_neg_pitch = 0.2999*2
-U_offset = -0.631
-V_offset = 0.0124
-W_offset = 0.0203
-W_gap = 0.0203
-U_gap = 8.407
-V_gap = 7.2827
-W_gap = 7.4789
+neg_pitch = (0.3035*2, 0.2959*2, 0.2999*2)
+neg_offset = (-0.631, 0.0124, 0.0203)
+gap = (8.407, 7.2827, 7.4789)
+#U_neg_pitch = 0.3035*2 
+#V_neg_pitch = 0.2959*2
+#W_neg_pitch = 0.2999*2
+#U_offset = -0.631
+#V_offset = 0.0124
+#W_offset = 0.0203
+#U_gap = 8.407
+#V_gap = 7.2827
+#W_gap = 7.4789
 
 def gaus(x,a,x0,sigma):
     return a*exp(-(x-x0)**2/(2*sigma**2))
@@ -113,12 +116,12 @@ def calculateEvents(data, uFit, vFit, wFit):
     
 def calculateChannelEvents(data, bounds):
     return list(itertools.chain.from_iterable( calculateGroupEvents(data, groupNumber, bounds) 
-        for groupNumber, data in data.items() if groupNumber < 100 ))
+        for groupNumber, data in data.items() if groupNumber < 1000 ))
 
 def calculateChannelTimesums(data, channel1, channel2):
     #Calculates all possible combinations of channel1 + channel2 within a group
     return list(itertools.chain.from_iterable( calculateGroupTimesums(data, channel1, channel2, groupNumber) 
-        for groupNumber, data in data.items() if groupNumber < 10000 ))
+        for groupNumber, data in data.items() if groupNumber < 1000 ))
 
 def calculateGroupTimesums(groupData, channel1, channel2, groupNumber):
     #Considers all possible MCP and layer combinations
@@ -146,51 +149,100 @@ def getDiffs(d1, d2, lowerTs, upperTs):
 def isReconstructable(u, v, w):
     return ((u == None) + (v == None) + (w == None)) <= 1
     
+def channelCount(u, v, w):
+    return (len(u) > 0) + (len(v) > 0) + (len(w) > 0)
+
+def headOrNone(list):
+    if len(list) > 0:
+        return list[0]
+    else:
+        return None
+
+def getEvent(u, v, w, groupNumber):
+    return Event(headOrNone(u), headOrNone(v), headOrNone(w), groupNumber)
+
+def getDiffsForMcp(m, groupData, channel1, channel2, lower, upper):
+    diffs = [ getDiffs(t1[0] - m, t2[0] - m, lower, upper)
+            for t1 in readGroup(groupData, channel1).as_matrix(["time_ns"])
+            for t2 in readGroup(groupData, channel2).as_matrix(["time_ns"]) ]
+    
+    return [ d for d in diffs if d != None ]
+    
+
+def readGroup(groupedData, key):
+    try:
+        return groupedData.get_group(key)
+    except:
+        return pd.DataFrame()
+
 def calculateGroupEvents(groupData, groupNumber, bounds):
     u_lower, u_upper, v_lower, v_upper, w_lower, w_upper = bounds
-    try:
-        mcpData = groupData.get_group(config.channelId.mcp)
-        
-        diffs = [(getDiffs(u1[0] - m[0], u2[0] - m[0], u_lower, u_upper), 
-                  getDiffs(v1[0] - m[0], v2[0] - m[0], v_lower, v_upper),
-                  getDiffs(w1[0] - m[0], w2[0] - m[0], w_lower, w_upper))
-            for u1 in groupData.get_group(config.channelId.u1).as_matrix(["time_ns"])
-            for u2 in groupData.get_group(config.channelId.u2).as_matrix(["time_ns"])
-            for v1 in groupData.get_group(config.channelId.v1).as_matrix(["time_ns"])
-            for v2 in groupData.get_group(config.channelId.v2).as_matrix(["time_ns"])
-            for w1 in groupData.get_group(config.channelId.w1).as_matrix(["time_ns"])
-            for w2 in groupData.get_group(config.channelId.w2).as_matrix(["time_ns"])
-            for m in mcpData.as_matrix(["time_ns"])]
-        #EVENTS SHOULD INCLUDE DETECTOR BUT ITS BRoKEN fOR NOW,
-        #IMPLEMENT WHEN ANALYSING ALL DATA
-        return [Event(u, v, w, groupNumber)
-            for u, v, w in diffs if isReconstructable(u, v, w)]
-    except:
-        return []
+    mcpData = readGroup(groupData, config.channelId.mcp)
+    
+    diffs = [(getDiffsForMcp(m[0], groupData, config.channelId.u1, config.channelId.u2, u_lower, u_upper),
+                 getDiffsForMcp(m[0], groupData, config.channelId.v1, config.channelId.v2, v_lower, v_upper),
+                 getDiffsForMcp(m[0], groupData, config.channelId.w1, config.channelId.w2, w_lower, w_upper))
+        for m in mcpData.as_matrix(["time_ns"])]
+    
+    return [getEvent(u, v, w, groupNumber) for (u, v, w) in diffs if channelCount(u, v, w) > 1]
+    #EVENTS SHOULD INCLUDE DETECTOR BUT ITS BRoKEN fOR NOW,
+    #IMPLEMENT WHEN ANALYSING ALL DATA
+
     
     #Event = namedtuple('Event', ['t1', 't2', 'timesum', 'c1', 'c2', 'groupNumber', 'detector'])
 
-def convertLayerPosition(Events, X_neg_pitch, X_gap, X_offset):
+def convertLayerPosition(Events, neg_pitch, gap, offset):
     #Want to process information for each array in xEvents 
-    X_nogap = []
-    X_layer = []
-    groups = []
+    U_layer = []
+    V_layer = []
+    W_layer = []
+    
+    #groups = []
     n = len(Events)
     i = 0
     while (i < (n-1)):
         i = i+1
-        #u1 - u2
-        x = (X_neg_pitch/2)*(Events[i][0] - Events[i][1])+X_offset
-        X_nogap.append(x)
-        group = Events[i][5]
-        groups.append(group)
-        if (x < 0):
-            X = x - (X_gap/2)
-            X_layer.append(X)
+        if events[i].u != None:
+            u = (neg_pitch[0]/2)*(Events[i].u[0] - Events[i].u[1])+offset[0]
+            #U_nogap.append(u)
+            if (u < -1):
+                U = u - (gap[0]/2)
+                U_layer.append(u)
+            else:
+                U = u + (gap[0]/2)
+                U_layer.append(U)
         else:
-            X = x + (X_gap/2)
-            X_layer.append(X)
-    return (X_layer,groups)
+            u = 0
+            U_layer.append(u)
+        if events[i].v != None:
+            v = (neg_pitch[1]/2)*(Events[i].v[0] - Events[i].v[1])+offset[1]
+            #V_nogap.append(V)
+            if (v < 0.5):
+                V = v - (gap[1]/2)
+                V_layer.append(v)
+            else:
+                V = v + (gap[1]/2)
+                V_layer.append(V)
+        else:
+            v = 0
+            V_layer.append(v)
+        if events[i].w != None:
+            w = (neg_pitch[2]/2)*(Events[i].w[0] - Events[i].w[1])+offset[2]
+            if (w < 0):
+                W = w - (gap[2]/2)
+                W_layer.append(w)
+            else:
+                W = w + (gap[2]/2)
+                W_layer.append(W)
+        else:
+            W = 0
+            W_layer.append(W)
+            
+        #group = Events[i][5]
+        #groups.append(group)
+        
+        
+    return (U_layer, V_layer, W_layer)
 
 #calculateCartesianPosition(U_layer, V_layer, W_layer):
     #Calculate the UV UW and VW cooridinates for each group. 
@@ -199,7 +251,10 @@ def convertLayerPosition(Events, X_neg_pitch, X_gap, X_offset):
     
 #%%
 #Calculate the timesums for each channel
-uFit, vFit, wFit = calculateTimeSums(negData, config.detectorId.neg)
+#uFit, vFit, wFit = calculateTimeSums(negData, config.detectorId.neg)
+uFit, vFit, wFit = ([  18.051664,    119.28900662,    1.6100861 ],
+                    [  14.79397714,  120.46929475,    1.975484  ],
+                    [  11.07192193,  114.65234937,    2.89525712])
 print("Peak Height, Peak position, Standard Deviation")
 print(np.array([uFit, vFit, wFit]))
 #Find the limits of our timesums
@@ -208,22 +263,19 @@ print(np.array([uFit, vFit, wFit]))
 #Now we want to calculate the events
 #Make sure that the layer information is within 3 standard deviations of the timesum    
 events = calculateEvents(negData, uFit, vFit, wFit)
-#U_layer = convertLayerPosition(uEvents, U_neg_pitch, U_gap, U_offset)
-#V_layer = convertLayerPosition(vEvents, V_neg_pitch, V_gap, V_offset)
-#W_layer = convertLayerPosition(wEvents, W_neg_pitch, W_gap, W_offset)
+print(events)
+layer_info = convertLayerPosition(events, neg_pitch, gap, neg_offset)
+
 
 #Check layer sums make sense:
-#plt.figure()
-#print("U_layer")
-#plt.hist(U_layer[0], bins=80, label='U')
-#print("V_layer")
-#plt.hist(V_layer[0], bins=80, label='V')
-#print("W_layer")
-#plt.hist(W_layer[0], bins=80, label='W')
-#plt.xlabel("Position (mm)")
-#plt.ylabel("Counts")
-#plt.legend()
-#plt.show()
+plt.figure()
+plt.hist(layer_info[0], bins=80, label='U')
+plt.hist(layer_info[1], bins=80, label='V')
+plt.hist(layer_info[2], bins=80, label='W')
+plt.xlabel("Position (mm)")
+plt.ylabel("Counts")
+plt.legend()
+plt.show()
 
 #%%
 #Convert to cartesian co-ordinates, need group info for this

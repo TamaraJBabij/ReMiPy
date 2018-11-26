@@ -125,12 +125,12 @@ def calculateGroupTimesums(groupData, channel1, channel2, groupNumber):
             for t2 in data2.as_matrix(["time_ns"])
             for m in mcpData.as_matrix(["time_ns"])]
         #print(diffs)
-        return [d1 + d2 for d1, d2 in diffs if d1 > 0 and d1 < 500 and d2 > 0 and d2 < 500]
+        return [d1 + d2 for d1, d2 in diffs if d1 > 0 and d1 < 200 and d2 > 0 and d2 < 200]
     except:
         return []
     
 def getDiffs(d1, d2, lowerTs, upperTs):
-    if d1 > 0 and d1 < 500 and d2 > 0 and d2 < 500 and (d1 + d2) > lowerTs and (d1 + d2) < upperTs:
+    if d1 > 0 and d1 < 200 and d2 > 0 and d2 < 200 and (d1 + d2) > lowerTs and (d1 + d2) < upperTs:
         return (d1, d2)
     else:
         return None
@@ -194,7 +194,7 @@ def convertLayerPosition(Events, neg_pitch, gap, offset):
         if events[i].u != None:
             u = (neg_pitch[0]/2)*(Events[i].u[0] - Events[i].u[1])+offset[0]
             #U_nogap.append(u)
-            if (u < 0):
+            if (u < -2):
                 U = u - (gap[0]/2)
                 U_layer.append(u)
             else:
@@ -206,7 +206,7 @@ def convertLayerPosition(Events, neg_pitch, gap, offset):
         if events[i].v != None:
             v = (neg_pitch[1]/2)*(Events[i].v[0] - Events[i].v[1])+offset[1]
             #V_nogap.append(V)
-            if (v < 0):
+            if (v < -1):
                 V = v - (gap[1]/2)
                 V_layer.append(v)
             else:
@@ -217,12 +217,13 @@ def convertLayerPosition(Events, neg_pitch, gap, offset):
             V_layer.append(v)
         if events[i].w != None:
             w = (neg_pitch[2]/2)*(Events[i].w[0] - Events[i].w[1])+offset[2]
-            if (w < 0):
+            if (w < -1):
                 W = w - (gap[2]/2)
                 W_layer.append(w)
             else:
                 W = w + (gap[2]/2)
                 W_layer.append(W)
+                
         else:
             w = 0
             W_layer.append(w)
@@ -274,6 +275,7 @@ def convertCartesian(layer_info):
     plt.plot(UV_x, UV_y, 'rx', label='UV')
     plt.plot(UW_x, UW_y, 'bx', label='UW')
     plt.plot(VW_x, VW_y, 'gx', label='VW')
+    plt.plot(0,0)
     plt.legend()
     plt.show()
     
@@ -284,6 +286,7 @@ def convertCartesian(layer_info):
     plt.plot(UV_x, UV_y, 'bx', label='UV')
     plt.plot(UW_x, UW_y, 'bx', label='UW')
     plt.plot(VW_x, VW_y, 'bx', label='VW')
+    plt.plot(0,0)
     plt.show()
     
 
@@ -328,7 +331,7 @@ else:
     with open('events.pickle', 'wb') as f:
         pickle.dump(events, f)
         
-print(events)
+#print(events)
 
 def compareCoords(coord1, coord2, name1, name2, axisName):    
     points = np.array(coord1) - coord2
@@ -361,7 +364,17 @@ def analyseLayerPositions(neg_pitch, neg_offset, gap):
     #Check layer sums make sense:
     plt.figure()
     plt.hist(layer_info[0], bins=80, label='U')
+    plt.xlabel("Position (mm)")
+    plt.ylabel("Counts")
+    plt.legend()
+    plt.show()
+    plt.figure()
     plt.hist(layer_info[1], bins=80, label='V')
+    plt.xlabel("Position (mm)")
+    plt.ylabel("Counts")
+    plt.legend()
+    plt.show()
+    plt.figure()
     plt.hist(layer_info[2], bins=80, label='W')
     plt.xlabel("Position (mm)")
     plt.ylabel("Counts")
@@ -384,11 +397,13 @@ def analyseLayerPositions(neg_pitch, neg_offset, gap):
     
     
 #%% loop over co-ordinates
-#np.arange(0.2, 1.2, 0.07)
+#np.arange(0.2, 1.2, 0.07), w: -2, v: 1
 #Negative Detector Constants as given by Dans calibration software
 neg_pitches = ([0.3043*2], [0.2963*2] , [0.3003*2])
-neg_offsets = ([-1.5], [1], [-2])
-gaps = ([8.3894], [7.3063], [7.50289])
+neg_offsets = ([-2.2], [-0.2], [-2.25])
+#neg_offsets = ([-1.5], [2], [-1.5]) GOOD IMAGE
+#neg_offsets = ([-1.5], [1], [-1.5])
+gaps = ([8.3894], [7.5063], [7.50289])
 #neg_pitch = (0.3043*2, 0.2963*2, 0.3003*2)
 #neg_offset = (-0.632, 0.0114, 0.0171)
 #gap = (8.3894, 7.3063, 7.50289)
@@ -415,13 +430,15 @@ uwvw_x = [std for (_, (x0, std), _, _, _), neg_pitch, neg_offset, gap in all_fit
 uvuw_y = [std for (_, _, (x0, std), _, _), neg_pitch, neg_offset, gap in all_fits]
 uvvw_y = [std for (_, _, _, (x0, std), _), neg_pitch, neg_offset, gap in all_fits]
 uwvw_y = [std for (_, _, _, _, (x0, std)), neg_pitch, neg_offset, gap in all_fits]
-xs = [neg_offset[2] for _, neg_pitch, neg_offset, gap in all_fits]
+xs = [neg_offset[0] for _, neg_pitch, neg_offset, gap in all_fits]
 
 plt.figure()
 plt.plot(xs, uvvw_x, label='uvvw x', marker='o')
 plt.plot(xs, uwvw_x, label='uwvw x', marker='o')
 plt.plot(xs, uvuw_y, label='uvuw y', marker='o')
 plt.plot(xs, uvvw_y, label='uvvw y', marker='o')
+plt.xlabel("offset")
+plt.ylabel("Standard Deviation")
 plt.plot(xs, uwvw_y, marker='o', label='uwvw y')
 plt.legend()
 plt.show()

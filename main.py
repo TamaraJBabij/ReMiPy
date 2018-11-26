@@ -87,12 +87,12 @@ def calculateTimeSums(data, detectorId):
 
 
 def calculateEvents(data, uFit, vFit, wFit):  
-    u_upper = uFit[1]+3*(uFit[-1]) 
-    u_lower = uFit[1]-3*(uFit[-1])
-    v_upper = vFit[1]+3*(vFit[-1]) 
-    v_lower = vFit[1]-3*(vFit[-1])
-    w_upper = wFit[1]+3*(wFit[-1]) 
-    w_lower = wFit[1]-3*(wFit[-1])
+    u_upper = uFit[1]+2*(uFit[-1]) 
+    u_lower = uFit[1]-2*(uFit[-1])
+    v_upper = vFit[1]+2*(vFit[-1]) 
+    v_lower = vFit[1]-2*(vFit[-1])
+    w_upper = wFit[1]+2*(wFit[-1]) 
+    w_lower = wFit[1]-2*(wFit[-1])
     
     #Calculates the time sums for each layer of the positive or negative detector
     groupByNumber = data.groupby(b'GroupNumber')
@@ -125,12 +125,12 @@ def calculateGroupTimesums(groupData, channel1, channel2, groupNumber):
             for t2 in data2.as_matrix(["time_ns"])
             for m in mcpData.as_matrix(["time_ns"])]
         #print(diffs)
-        return [d1 + d2 for d1, d2 in diffs if d1 > 0 and d1 < 200 and d2 > 0 and d2 < 200]
+        return [d1 + d2 for d1, d2 in diffs if d1 > 0 and d1 < 150 and d2 > 0 and d2 < 150]
     except:
         return []
     
 def getDiffs(d1, d2, lowerTs, upperTs):
-    if d1 > 0 and d1 < 200 and d2 > 0 and d2 < 200 and (d1 + d2) > lowerTs and (d1 + d2) < upperTs:
+    if d1 > 0 and d1 < 150 and d2 > 0 and d2 < 150 and (d1 + d2) > lowerTs and (d1 + d2) < upperTs:
         return (d1, d2)
     else:
         return None
@@ -206,7 +206,7 @@ def convertLayerPosition(Events, neg_pitch, gap, offset):
         if events[i].v != None:
             v = (neg_pitch[1]/2)*(Events[i].v[0] - Events[i].v[1])+offset[1]
             #V_nogap.append(V)
-            if (v < -1):
+            if (v < -0.75):
                 V = v - (gap[1]/2)
                 V_layer.append(v)
             else:
@@ -398,12 +398,14 @@ def analyseLayerPositions(neg_pitch, neg_offset, gap):
     
 #%% loop over co-ordinates
 #np.arange(0.2, 1.2, 0.07), w: -2, v: 1
-#Negative Detector Constants as given by Dans calibration software
+#Negative Detector Constants as given by Dans calibration software#
+#neg_pitches = ([0.6], [0.58] , [0.59])
 neg_pitches = ([0.3043*2], [0.2963*2] , [0.3003*2])
-neg_offsets = ([-2.2], [-0.2], [-2.25])
+neg_offsets = ([-3], [-0.6], [-2.25])
+#neg_offsets = ([-2.2], [-0.2], [-2.25])
 #neg_offsets = ([-1.5], [2], [-1.5]) GOOD IMAGE
 #neg_offsets = ([-1.5], [1], [-1.5])
-gaps = ([8.3894], [7.5063], [7.50289])
+gaps = ([8.3894], [7.3063], [7.50289])
 #neg_pitch = (0.3043*2, 0.2963*2, 0.3003*2)
 #neg_offset = (-0.632, 0.0114, 0.0171)
 #gap = (8.3894, 7.3063, 7.50289)
@@ -430,7 +432,7 @@ uwvw_x = [std for (_, (x0, std), _, _, _), neg_pitch, neg_offset, gap in all_fit
 uvuw_y = [std for (_, _, (x0, std), _, _), neg_pitch, neg_offset, gap in all_fits]
 uvvw_y = [std for (_, _, _, (x0, std), _), neg_pitch, neg_offset, gap in all_fits]
 uwvw_y = [std for (_, _, _, _, (x0, std)), neg_pitch, neg_offset, gap in all_fits]
-xs = [neg_offset[0] for _, neg_pitch, neg_offset, gap in all_fits]
+xs = [neg_pitch[2] for _, neg_pitch, neg_offset, gap in all_fits]
 
 plt.figure()
 plt.plot(xs, uvvw_x, label='uvvw x', marker='o')

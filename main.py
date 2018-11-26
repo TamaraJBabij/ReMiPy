@@ -125,12 +125,12 @@ def calculateGroupTimesums(groupData, channel1, channel2, groupNumber):
             for t2 in data2.as_matrix(["time_ns"])
             for m in mcpData.as_matrix(["time_ns"])]
         #print(diffs)
-        return [d1 + d2 for d1, d2 in diffs if d1 > 0 and d1 < 150 and d2 > 0 and d2 < 150]
+        return [d1 + d2 for d1, d2 in diffs if d1 > 0 and d1 < 130 and d2 > 0 and d2 < 130]
     except:
         return []
     
 def getDiffs(d1, d2, lowerTs, upperTs):
-    if d1 > 0 and d1 < 150 and d2 > 0 and d2 < 150 and (d1 + d2) > lowerTs and (d1 + d2) < upperTs:
+    if d1 > 0 and d1 < 130 and d2 > 0 and d2 < 130 and (d1 + d2) > lowerTs and (d1 + d2) < upperTs:
         return (d1, d2)
     else:
         return None
@@ -206,7 +206,7 @@ def convertLayerPosition(Events, neg_pitch, gap, offset):
         if events[i].v != None:
             v = (neg_pitch[1]/2)*(Events[i].v[0] - Events[i].v[1])+offset[1]
             #V_nogap.append(V)
-            if (v < -0.75):
+            if (v < -1):
                 V = v - (gap[1]/2)
                 V_layer.append(v)
             else:
@@ -298,7 +298,7 @@ def convertCartesian(layer_info):
     
     
     plt.figure()
-    plt.hist2d(X, Y, bins=200)
+    plt.hist2d(X, Y, bins=150)
     cbar = plt.colorbar()
     cbar.ax.set_ylabel('Counts')
     plt.show()
@@ -401,8 +401,8 @@ def analyseLayerPositions(neg_pitch, neg_offset, gap):
 #Negative Detector Constants as given by Dans calibration software#
 #neg_pitches = ([0.6], [0.58] , [0.59])
 neg_pitches = ([0.3043*2], [0.2963*2] , [0.3003*2])
-neg_offsets = ([-3], [-0.6], [-2.25])
-#neg_offsets = ([-2.2], [-0.2], [-2.25])
+#neg_offsets = ([-3.1], [-0.8], [-2.25])
+neg_offsets = ([-2.2], [-0.2], [-2.25])
 #neg_offsets = ([-1.5], [2], [-1.5]) GOOD IMAGE
 #neg_offsets = ([-1.5], [1], [-1.5])
 gaps = ([8.3894], [7.3063], [7.50289])

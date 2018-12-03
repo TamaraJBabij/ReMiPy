@@ -12,6 +12,7 @@ import pylab as plb
 from scipy.optimize import curve_fit
 from scipy import asarray as ar,exp
 from scipy.stats import norm
+from scipy import stats
 import math
 import os.path
 import pickle
@@ -194,9 +195,9 @@ def convertLayerPosition(Events, neg_pitch, gap, offset):
         if events[i].u != None:
             u = (neg_pitch[0]/2)*(Events[i].u[0] - Events[i].u[1])+offset[0]
             #U_nogap.append(u)
-            if (u < -2):
+            if (u < 0):
                 U = u - (gap[0]/2)
-                U_layer.append(u)
+                U_layer.append(U)
             else:
                 U = u + (gap[0]/2)
                 U_layer.append(U)
@@ -206,9 +207,9 @@ def convertLayerPosition(Events, neg_pitch, gap, offset):
         if events[i].v != None:
             v = (neg_pitch[1]/2)*(Events[i].v[0] - Events[i].v[1])+offset[1]
             #V_nogap.append(V)
-            if (v < -1):
+            if (v < 0):
                 V = v - (gap[1]/2)
-                V_layer.append(v)
+                V_layer.append(V)
             else:
                 V = v + (gap[1]/2)
                 V_layer.append(V)
@@ -217,9 +218,9 @@ def convertLayerPosition(Events, neg_pitch, gap, offset):
             V_layer.append(v)
         if events[i].w != None:
             w = (neg_pitch[2]/2)*(Events[i].w[0] - Events[i].w[1])+offset[2]
-            if (w < -1):
+            if (w < 0):
                 W = w - (gap[2]/2)
-                W_layer.append(w)
+                W_layer.append(W)
             else:
                 W = w + (gap[2]/2)
                 W_layer.append(W)
@@ -289,6 +290,24 @@ def convertCartesian(layer_info):
     plt.plot(0,0)
     plt.show()
     
+    plt.figure()
+    plt.title("UV_y vs UW_y")
+    plt.plot(UW_y, UV_y, 'bx', label='UW_y vs UV_y')
+    plt.plot(UW_x, VW_x, 'rx', label='UW_x vs VW_x')
+    plt.plot(UW_y, VW_y, 'rx', label='UW_y vs VW_y')
+    plt.legend()
+    plt.show()
+    m,b = np.polyfit(UW_y, UV_y,1) 
+    UWy_UVy_m.append(m)
+    UWy_UVy_b.append(b)
+    m,b = np.polyfit(UW_x, VW_x,1) 
+    UWx_VWx_m.append(m)
+    UWx_VWx_b.append(b)
+    m,b = np.polyfit(UW_y, VW_y,1) 
+    UWy_VWy_m.append(m)
+    UWy_VWy_b.append(b)
+
+    
 
     X = np.concatenate((UV_x,UW_x),axis=0)
     X = np.concatenate((X,VW_x),axis=0)
@@ -351,7 +370,8 @@ def compareCoords(coord1, coord2, name1, name2, axisName):
     plt.plot(midpts, gaus(midpts,*uFit), 'ro:')
     
     plt.show()
-    return (uFit[1], uFit[2])
+    print(uFit)
+    return (uFit[1], abs(uFit[2]))
     
 
 def analyseLayerPositions(neg_pitch, neg_offset, gap):
@@ -399,16 +419,12 @@ def analyseLayerPositions(neg_pitch, neg_offset, gap):
 #%% loop over co-ordinates
 #np.arange(0.2, 1.2, 0.07), w: -2, v: 1
 #Negative Detector Constants as given by Dans calibration software#
-#neg_pitches = ([0.6], [0.58] , [0.59])
-neg_pitches = ([0.3043*2], [0.2963*2] , [0.3003*2])
-#neg_offsets = ([-3.1], [-0.8], [-2.25])
-neg_offsets = ([-2.2], [-0.2], [-2.25])
-#neg_offsets = ([-1.5], [2], [-1.5]) GOOD IMAGE
-#neg_offsets = ([-1.5], [1], [-1.5])
-gaps = ([8.3894], [7.3063], [7.50289])
-#neg_pitch = (0.3043*2, 0.2963*2, 0.3003*2)
-#neg_offset = (-0.632, 0.0114, 0.0171)
-#gap = (8.3894, 7.3063, 7.50289)
+neg_pitches = ([0.56], [0.58], [0.6])
+neg_offsets = ([-0.46], [2], [-0.5])
+#neg_offsets = ([-0.47], [2], [-0.64])
+gaps = ([8.25], np.arange(7.7,8,0.01), [7.525])
+#gaps = ([8.35], [7.385], [7.525])
+
 #U_neg_pitch = 0.3035*2 
 #V_neg_pitch = 0.2959*2
 #W_neg_pitch = 0.2999*2
@@ -418,6 +434,14 @@ gaps = ([8.3894], [7.3063], [7.50289])
 #U_gap = 8.407
 #V_gap = 7.2827
 #W_gap = 7.4789
+
+UWy_UVy_m = []
+UWx_VWx_m = []
+UWy_VWy_m = []
+UWy_UVy_b = []
+UWx_VWx_b = []
+UWy_VWy_b = []
+
 print("generating param sets")
 param_sets = [((np_0, np_1, np_2), (no_0, no_1, no_2), (g_0, g_1, g_2))
     for np_0 in neg_pitches[0] for np_1 in neg_pitches[1] for np_2 in neg_pitches[2]
@@ -432,15 +456,59 @@ uwvw_x = [std for (_, (x0, std), _, _, _), neg_pitch, neg_offset, gap in all_fit
 uvuw_y = [std for (_, _, (x0, std), _, _), neg_pitch, neg_offset, gap in all_fits]
 uvvw_y = [std for (_, _, _, (x0, std), _), neg_pitch, neg_offset, gap in all_fits]
 uwvw_y = [std for (_, _, _, _, (x0, std)), neg_pitch, neg_offset, gap in all_fits]
-xs = [neg_pitch[2] for _, neg_pitch, neg_offset, gap in all_fits]
+xs = [gap[1] for _, neg_pitch, neg_offset, gap in all_fits]
+
+uvvw_x0 = [x0 for ((x0, std), _, _, _, _), neg_pitch, neg_offset, gap in all_fits]
+uwvw_x0 = [x0 for (_, (x0, std), _, _, _), neg_pitch, neg_offset, gap in all_fits]
+uvuw_y0 = [x0 for (_, _, (x0, std), _, _), neg_pitch, neg_offset, gap in all_fits]
+uvvw_y0 = [x0 for (_, _, _, (x0, std), _), neg_pitch, neg_offset, gap in all_fits]
+uwvw_y0 = [x0 for (_, _, _, _, (x0, std)), neg_pitch, neg_offset, gap in all_fits]
 
 plt.figure()
-plt.plot(xs, uvvw_x, label='uvvw x', marker='o')
-plt.plot(xs, uwvw_x, label='uwvw x', marker='o')
 plt.plot(xs, uvuw_y, label='uvuw y', marker='o')
-plt.plot(xs, uvvw_y, label='uvvw y', marker='o')
+plt.xlabel("offset")
+plt.ylabel("Standard Deviation")
+plt.legend()
+plt.show()
+plt.figure()
 plt.xlabel("offset")
 plt.ylabel("Standard Deviation")
 plt.plot(xs, uwvw_y, marker='o', label='uwvw y')
 plt.legend()
+plt.show()
+plt.figure()
+plt.plot(xs, uwvw_x, label='uwvw x', marker='o')
+plt.xlabel("offset")
+plt.ylabel("Standard Deviation")
+plt.legend()
+plt.show()
+
+plt.figure()
+plt.plot(xs, uvvw_x0, label='uvvw x', marker='o')
+plt.plot(xs, uwvw_x0, label='uwvw x', marker='o')
+plt.plot(xs, uvuw_y0, label='uvuw y', marker='o')
+plt.plot(xs, uvvw_y0, label='uvvw y', marker='o')
+plt.xlabel("offset")
+plt.ylabel("Peak Position")
+#plt.plot(xs, uwvw_y, marker='o', label='uwvw y')
+plt.legend()
+plt.show()
+
+
+plt.figure()
+plt.title("Slopes of linear fit")
+plt.plot(xs, UWy_UVy_m, label='UWy_UVy', marker='o')
+plt.plot(xs, UWx_VWx_m, label='UWx_VWx', marker='o')
+plt.plot(xs, UWy_VWy_m, label='UWy_VWy', marker='o')
+#len(UWx_VWx)
+#x = np.arrange(0,x,1)
+plt.show()
+
+plt.figure()
+plt.title("Intercepts of linear fit")
+plt.plot(xs, UWy_UVy_b, label='UWy_UVy', marker='o')
+plt.plot(xs, UWx_VWx_b, label='UWx_VWx', marker='o')
+plt.plot(xs, UWy_VWy_b, label='UWy_VWy', marker='o')
+#len(UWx_VWx)
+#x = np.arrange(0,x,1)
 plt.show()

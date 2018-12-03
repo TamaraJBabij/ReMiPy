@@ -300,7 +300,7 @@ def convertCartesian(layer_info):
     plt.show()
     plt.figure()
     plt.title("UV_y vs UW_y")
-    plt.plot(UW_y, UV_y, 'bx', label='UW_y vs UV_y')
+    plt.plot(UV_y, UV_y, 'bx', label='UW_y vs UV_y')
     plt.legend()
     plt.show()
     plt.figure()
@@ -308,18 +308,44 @@ def convertCartesian(layer_info):
     plt.plot(UW_x, VW_x, 'rx', label='UW_x vs VW_x')
     plt.legend()
     plt.show()
-    m,b = np.polyfit(UW_y, UV_y,1) 
-    UWy_UVy_m.append(m)
-    UWy_UVy_b.append(b)
+    
+    m,b = np.polyfit(UV_x, VW_x,1) 
+    uvvw_x_m.append(m)
+    uvvw_x_b.append(b)
+    print("uv vw_x")
+    print(m)
+    print(b)
+    
     m,b = np.polyfit(UW_x, VW_x,1) 
-    UWx_VWx_m.append(m)
-    UWx_VWx_b.append(b)
+    uwvw_x_m.append(m)
+    uwvw_x_b.append(b)
+    print("uwvw_x")
+    print(m)
+    print(b)
+    
+    m,b = np.polyfit(UV_y, UW_y,1) 
+    uvuw_y_m.append(m)
+    uvuw_y_b.append(b)
+    print("uvuw_y")
+    print(m)
+    print(b)
+    
+    m,b = np.polyfit(UV_y, VW_y,1) 
+    uvvw_y_m.append(m)
+    uvvw_y_b.append(b)
+    print("uvvw_y")
+    print(m)
+    print(b)
+    
     m,b = np.polyfit(UW_y, VW_y,1) 
-    UWy_VWy_m.append(m)
-    UWy_VWy_b.append(b)
-
+    uwvw_y_m.append(m)
+    uwvw_y_b.append(b)
+    print("uwvw_y")
+    print(m)
+    print(b)
     
 
+    
     X = np.concatenate((UV_x,UW_x),axis=0)
     X = np.concatenate((X,VW_x),axis=0)
     Y = np.concatenate((UV_y,UW_y),axis=0)
@@ -432,10 +458,10 @@ def analyseLayerPositions(neg_pitch, neg_offset, gap):
 #Negative Detector Constants as given by Dans calibration software#
 neg_pitches = ([0.56], [0.58], [0.6])
 #neg_pitches = ([0.56], [0.58], [0.6])
-neg_offsets = ([-0.46], [2], [-0.5])
+neg_offsets = ([-0.46], [2-0.01], [-0.5-0.143])
 #neg_offsets = ([-0.46], [2], [-0.5])
 #neg_offsets = ([-0.47], [2], [-0.64])
-gaps = ([8.25], [7.9], [7.55])
+gaps = ([8.35], np.arange(5, 9, 0.005), np.arange(5,9,0.005))
 #gaps = ([8.35], [7.385], [7.525])
 
 #U_neg_pitch = 0.3035*2 
@@ -448,12 +474,16 @@ gaps = ([8.25], [7.9], [7.55])
 #V_gap = 7.2827
 #W_gap = 7.4789
 
-UWy_UVy_m = []
-UWx_VWx_m = []
-UWy_VWy_m = []
-UWy_UVy_b = []
-UWx_VWx_b = []
-UWy_VWy_b = []
+uvvw_x_m = []
+uwvw_x_m = []
+uvuw_y_m = []
+uvvw_y_m = []
+uwvw_y_m = []
+uvvw_x_b = []
+uwvw_x_b = []
+uvuw_y_b = []
+uvvw_y_b = []
+uwvw_y_b = []
 
 print("generating param sets")
 param_sets = [((np_0, np_1, np_2), (no_0, no_1, no_2), (g_0, g_1, g_2))
@@ -463,7 +493,7 @@ param_sets = [((np_0, np_1, np_2), (no_0, no_1, no_2), (g_0, g_1, g_2))
 
 all_fits = [(analyseLayerPositions(neg_pitch, neg_offset, gap), neg_pitch, neg_offset, gap)
     for neg_pitch, neg_offset, gap in param_sets]
-
+  
 uvvw_x = [std for ((x0, std), _, _, _, _), neg_pitch, neg_offset, gap in all_fits]
 uwvw_x = [std for (_, (x0, std), _, _, _), neg_pitch, neg_offset, gap in all_fits]
 uvuw_y = [std for (_, _, (x0, std), _, _), neg_pitch, neg_offset, gap in all_fits]
@@ -510,18 +540,22 @@ plt.show()
 
 plt.figure()
 plt.title("Slopes of linear fit")
-plt.plot(xs, UWy_UVy_m, label='UWy_UVy', marker='o')
-plt.plot(xs, UWx_VWx_m, label='UWx_VWx', marker='o')
-plt.plot(xs, UWy_VWy_m, label='UWy_VWy', marker='o')
+plt.plot(xs, uvvw_x_m, label='UV VW x', marker='o')
+plt.plot(xs, uwvw_x_m, label='UW VW x', marker='o')
+plt.plot(xs, uvuw_y_m, label='UV UW y', marker='o')
+plt.plot(xs, uvvw_y_m, label='UV VW y', marker='o')
+plt.plot(xs, uwvw_y_m, label='UW VW y', marker='o')
 #len(UWx_VWx)
 #x = np.arrange(0,x,1)
 plt.show()
 
 plt.figure()
 plt.title("Intercepts of linear fit")
-plt.plot(xs, UWy_UVy_b, label='UWy_UVy', marker='o')
-plt.plot(xs, UWx_VWx_b, label='UWx_VWx', marker='o')
-plt.plot(xs, UWy_VWy_b, label='UWy_VWy', marker='o')
+plt.plot(xs, uvvw_x_b, label='UV VW x', marker='o')
+plt.plot(xs, uwvw_x_b, label='UW VW x', marker='o')
+plt.plot(xs, uvuw_y_b, label='UV UW y', marker='o')
+plt.plot(xs, uvvw_y_b, label='UV VW y', marker='o')
+plt.plot(xs, uwvw_y_b, label='UW VW y', marker='o')
 #len(UWx_VWx)
 #x = np.arrange(0,x,1)
 plt.show()

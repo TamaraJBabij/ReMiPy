@@ -25,9 +25,10 @@ print(config)
 
 trees = rootTreeOps.openFromDirectory(r"C:\Users\Tamara\Desktop\ReMi20169121531")
 fullData = rootTreeOps.asDataFrame(trees)
-fullData["time_ns"] = 32000 - 0.5*fullData[b'Time']
-fullData["channel"] = pd.Series(config.channels[x].channelId for x in fullData[b'Channel'])
-fullData["detector"] = pd.Series(config.channels[x].detectorId for x in fullData[b'Channel'])
+#add b'Time' for operation on laptop
+fullData["time_ns"] = 32000 - 0.5*fullData['Time']
+fullData["channel"] = pd.Series(config.channels[x].channelId for x in fullData['Channel'])
+fullData["detector"] = pd.Series(config.channels[x].detectorId for x in fullData['Channel'])
 groupByDetector = fullData.groupby("detector")
 negData = groupByDetector.get_group(config.detectorId.neg)
 
@@ -195,7 +196,7 @@ def convertLayerPosition(Events, neg_pitch, gap, offset):
         if events[i].u != None:
             u = (neg_pitch[0]/2)*(Events[i].u[0] - Events[i].u[1])+offset[0]
             #U_nogap.append(u)
-            if (u < 0):
+            if (u < -1):
                 U = u - (gap[0]/2)
                 U_layer.append(U)
             else:
@@ -207,7 +208,7 @@ def convertLayerPosition(Events, neg_pitch, gap, offset):
         if events[i].v != None:
             v = (neg_pitch[1]/2)*(Events[i].v[0] - Events[i].v[1])+offset[1]
             #V_nogap.append(V)
-            if (v < 0):
+            if (v < 1):
                 V = v - (gap[1]/2)
                 V_layer.append(V)
             else:
@@ -218,7 +219,7 @@ def convertLayerPosition(Events, neg_pitch, gap, offset):
             V_layer.append(v)
         if events[i].w != None:
             w = (neg_pitch[2]/2)*(Events[i].w[0] - Events[i].w[1])+offset[2]
-            if (w < 0):
+            if (w < -1):
                 W = w - (gap[2]/2)
                 W_layer.append(W)
             else:
@@ -294,7 +295,17 @@ def convertCartesian(layer_info):
     plt.title("UV_y vs UW_y")
     plt.plot(UW_y, UV_y, 'bx', label='UW_y vs UV_y')
     plt.plot(UW_x, VW_x, 'rx', label='UW_x vs VW_x')
-    plt.plot(UW_y, VW_y, 'rx', label='UW_y vs VW_y')
+    plt.plot(UW_y, VW_y, 'gx', label='UW_y vs VW_y')
+    plt.legend()
+    plt.show()
+    plt.figure()
+    plt.title("UV_y vs UW_y")
+    plt.plot(UW_y, UV_y, 'bx', label='UW_y vs UV_y')
+    plt.legend()
+    plt.show()
+    plt.figure()
+    plt.title("UV_y vs UW_y")
+    plt.plot(UW_x, VW_x, 'rx', label='UW_x vs VW_x')
     plt.legend()
     plt.show()
     m,b = np.polyfit(UW_y, UV_y,1) 
@@ -419,9 +430,10 @@ def analyseLayerPositions(neg_pitch, neg_offset, gap):
 #%% loop over co-ordinates
 #np.arange(0.2, 1.2, 0.07), w: -2, v: 1
 #Negative Detector Constants as given by Dans calibration software#
-neg_pitches = ([0.56], np.arange(), [0.6])
+neg_pitches = ([0.56], [0.58], [0.6])
 #neg_pitches = ([0.56], [0.58], [0.6])
 neg_offsets = ([-0.46], [2], [-0.5])
+#neg_offsets = ([-0.46], [2], [-0.5])
 #neg_offsets = ([-0.47], [2], [-0.64])
 gaps = ([8.25], [7.9], [7.55])
 #gaps = ([8.35], [7.385], [7.525])
@@ -457,7 +469,7 @@ uwvw_x = [std for (_, (x0, std), _, _, _), neg_pitch, neg_offset, gap in all_fit
 uvuw_y = [std for (_, _, (x0, std), _, _), neg_pitch, neg_offset, gap in all_fits]
 uvvw_y = [std for (_, _, _, (x0, std), _), neg_pitch, neg_offset, gap in all_fits]
 uwvw_y = [std for (_, _, _, _, (x0, std)), neg_pitch, neg_offset, gap in all_fits]
-xs = [neg_pitch[0] for _, neg_pitch, neg_offset, gap in all_fits]
+xs = [neg_offset[2] for _, neg_pitch, neg_offset, gap in all_fits]
 
 uvvw_x0 = [x0 for ((x0, std), _, _, _, _), neg_pitch, neg_offset, gap in all_fits]
 uwvw_x0 = [x0 for (_, (x0, std), _, _, _), neg_pitch, neg_offset, gap in all_fits]

@@ -419,10 +419,11 @@ def analyseLayerPositions(neg_pitch, neg_offset, gap):
 #%% loop over co-ordinates
 #np.arange(0.2, 1.2, 0.07), w: -2, v: 1
 #Negative Detector Constants as given by Dans calibration software#
-neg_pitches = ([0.56], [0.58], [0.6])
+neg_pitches = ([0.56], np.arange(), [0.6])
+#neg_pitches = ([0.56], [0.58], [0.6])
 neg_offsets = ([-0.46], [2], [-0.5])
 #neg_offsets = ([-0.47], [2], [-0.64])
-gaps = ([8.25], np.arange(7.7,8,0.01), [7.525])
+gaps = ([8.25], [7.9], [7.55])
 #gaps = ([8.35], [7.385], [7.525])
 
 #U_neg_pitch = 0.3035*2 
@@ -456,7 +457,7 @@ uwvw_x = [std for (_, (x0, std), _, _, _), neg_pitch, neg_offset, gap in all_fit
 uvuw_y = [std for (_, _, (x0, std), _, _), neg_pitch, neg_offset, gap in all_fits]
 uvvw_y = [std for (_, _, _, (x0, std), _), neg_pitch, neg_offset, gap in all_fits]
 uwvw_y = [std for (_, _, _, _, (x0, std)), neg_pitch, neg_offset, gap in all_fits]
-xs = [gap[1] for _, neg_pitch, neg_offset, gap in all_fits]
+xs = [neg_pitch[0] for _, neg_pitch, neg_offset, gap in all_fits]
 
 uvvw_x0 = [x0 for ((x0, std), _, _, _, _), neg_pitch, neg_offset, gap in all_fits]
 uwvw_x0 = [x0 for (_, (x0, std), _, _, _), neg_pitch, neg_offset, gap in all_fits]

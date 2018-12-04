@@ -461,12 +461,14 @@ neg_pitches = ([0.56], [0.58], [0.6])
 neg_offsets = ([-0.46], [2-0.01], [-0.5-0.143])
 #neg_offsets = ([-0.46], [2], [-0.5])
 #neg_offsets = ([-0.47], [2], [-0.64])
-gaps = ([8.35], np.arange(5, 9, 0.005), np.arange(5,9,0.005))
+#gaps = ([8.35], [7.199999999999992], [7.299999999999992])
+#gaps = ([8.35], np.arange(5, 9, 0.1), np.arange(5,9,0.1))
+#gaps = ([8.407], [7.385], [7.8789])
+gaps = ([8.407], [7.385], [7.8789])
 #gaps = ([8.35], [7.385], [7.525])
-
-#U_neg_pitch = 0.3035*2 
-#V_neg_pitch = 0.2959*2
-#W_neg_pitch = 0.2999*2
+#U_neg_pitch = 0.3035*2 0.607
+#V_neg_pitch = 0.2959*2 0.5918
+#W_neg_pitch = 0.2999*2  0.5998
 #U_offset = -0.631
 #V_offset = 0.0124
 #W_offset = 0.0203
@@ -545,6 +547,7 @@ plt.plot(xs, uwvw_x_m, label='UW VW x', marker='o')
 plt.plot(xs, uvuw_y_m, label='UV UW y', marker='o')
 plt.plot(xs, uvvw_y_m, label='UV VW y', marker='o')
 plt.plot(xs, uwvw_y_m, label='UW VW y', marker='o')
+plt.legend()
 #len(UWx_VWx)
 #x = np.arrange(0,x,1)
 plt.show()
@@ -556,6 +559,7 @@ plt.plot(xs, uwvw_x_b, label='UW VW x', marker='o')
 plt.plot(xs, uvuw_y_b, label='UV UW y', marker='o')
 plt.plot(xs, uvvw_y_b, label='UV VW y', marker='o')
 plt.plot(xs, uwvw_y_b, label='UW VW y', marker='o')
+plt.legend()
 #len(UWx_VWx)
 #x = np.arrange(0,x,1)
 plt.show()

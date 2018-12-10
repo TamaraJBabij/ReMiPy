@@ -458,7 +458,7 @@ def analyseLayerPositions(neg_pitch, neg_offset, gap):
 #Negative Detector Constants as given by Dans calibration software#
 neg_pitches = ([0.56], [0.58], [0.6])
 #neg_pitches = ([0.56], [0.58], [0.6])
-neg_offsets = ([-0.46], np.arange(-2,4,0.3), [-0.5-0.143])
+neg_offsets = ([-0.46], [2], [-0.5-0.143])
 #neg_offsets = ([-0.46], [2-0.01], [-0.5])
 #neg_offsets = ([-0.47], [2], [-0.64])
 #gaps = ([8.35], [7.199999999999992], [7.299999999999992])

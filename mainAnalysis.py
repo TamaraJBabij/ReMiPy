@@ -18,7 +18,7 @@ import os.path
 import pickle
 
 #Event = namedtuple('Event', ['u', 'v', 'w', 'timesum', 'c1', 'c2', 'groupNumber'])
-Event = namedtuple('Event', ['u', 'v', 'w', 'groupNumber'])
+Event = namedtuple('Event', ['u', 'v', 'w', 'groupNumber', 'detector'])
 #neg_pitch = namedtuple('Pitch', ['u', 'v', 'w'])
 config = configLoader.load("config.json")
 print(config)
@@ -97,7 +97,7 @@ def calculateEvents(data, uFit, vFit, wFit):
     w_lower = wFit[1]-2*(wFit[-1])
     
     #Calculates the time sums for each layer of the positive or negative detector
-    groupByNumber = data.groupby(b'GroupNumber')
+    groupByNumber = data.groupby('GroupNumber')
     #print(groupByNumber)
     groups = { name: groupByNumber.get_group(name).groupby('channel') for (name, _) in groupByNumber }
     #print(groups)
@@ -149,8 +149,8 @@ def headOrNone(list):
     else:
         return None
 
-def getEvent(u, v, w, groupNumber):
-    return Event(headOrNone(u), headOrNone(v), headOrNone(w), groupNumber)
+def getEvent(u, v, w, groupNumber, DetectorID):
+    return Event(headOrNone(u), headOrNone(v), headOrNone(w), groupNumber, DetectorID)
 
 def getDiffsForMcp(m, groupData, channel1, channel2, lower, upper):
     diffs = [ getDiffs(t1[0] - m, t2[0] - m, lower, upper)
@@ -169,13 +169,15 @@ def readGroup(groupedData, key):
 def calculateGroupEvents(groupData, groupNumber, bounds):
     u_lower, u_upper, v_lower, v_upper, w_lower, w_upper = bounds
     mcpData = readGroup(groupData, config.channelId.mcp)
-    
+    #print(mcpData)
+    #if not mcpData.empty:
+        #print(mcpData['detector']) 
     diffs = [(getDiffsForMcp(m[0], groupData, config.channelId.u1, config.channelId.u2, u_lower, u_upper),
                  getDiffsForMcp(m[0], groupData, config.channelId.v1, config.channelId.v2, v_lower, v_upper),
                  getDiffsForMcp(m[0], groupData, config.channelId.w1, config.channelId.w2, w_lower, w_upper))
         for m in mcpData.as_matrix(["time_ns"])]
     
-    return [getEvent(u, v, w, groupNumber) for (u, v, w) in diffs if channelCount(u, v, w) > 2]
+    return [getEvent(u, v, w, groupNumber, mcpData['detector'].values[0]) for (u, v, w) in diffs if channelCount(u, v, w) > 1]
     #EVENTS SHOULD INCLUDE DETECTOR BUT ITS BRoKEN fOR NOW,
     #IMPLEMENT WHEN ANALYSING ALL DATA
 

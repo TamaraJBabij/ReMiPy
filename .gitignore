@@ -21,3 +21,12 @@ $RECYCLE.BIN/
 # =========================
 # Operating System Files
 # =========================
+
+
+
+
+# Python build and run artifacts
+*.pyc
+
+# VS Code
+.vscode

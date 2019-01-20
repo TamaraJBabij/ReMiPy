@@ -16,28 +16,52 @@ from scipy import stats
 import math
 import os.path
 import pickle
+from enum import IntEnum
 
 #Event = namedtuple('Event', ['u', 'v', 'w', 'timesum', 'c1', 'c2', 'groupNumber'])
-Event = namedtuple('Event', ['u', 'v', 'w', 'groupNumber', 'detector'])
+Event = namedtuple('Event', ['u', 'v', 'w', 'mcpTime', 'detector', 'particleType'])
+Group = namedtuple('Group', ['events', 'groupNumber'])
+ParticleType = IntEnum("ParticleType", ["ElemParticle", "Ion1", "Ion2", "Other"])
 #neg_pitch = namedtuple('Pitch', ['u', 'v', 'w'])
 config = configLoader.load("config.json")
 print(config)
 
+def getParticleType(time):
+    if time > config.particleTimes["elemParticle"]["min"] and time < config.particleTimes["elemParticle"]["max"]:
+        return ParticleType.ElemParticle
+    if time > config.particleTimes["ion1"]["min"] and time < config.particleTimes["ion1"]["max"]:
+        return ParticleType.Ion1
+    if time > config.particleTimes["ion2"]["min"] and time < config.particleTimes["ion2"]["max"]:
+        return ParticleType.Ion2
+    return ParticleType.Other
 trees = rootTreeOps.openFromDirectory(r"C:\Users\Tamara\Desktop\ReMi20169121531")
 fullData = rootTreeOps.asDataFrame(trees)
 #add b'Time' for operation on laptop
 fullData["time_ns"] = 32000 - 0.5*fullData['Time']
-fullData["channel"] = pd.Series(config.channels[x].channelId for x in fullData['Channel'])
-fullData["detector"] = pd.Series(config.channels[x].detectorId for x in fullData['Channel'])
+fullData["particle_type"] = pd.Series(int(getParticleType(t)) for t in fullData['time_ns'])
+fullData["channel"] = pd.Series(int(config.channels[x].channelId) for x in fullData['Channel'])
+fullData["detector"] = pd.Series(int(config.channels[x].detectorId) for x in fullData['Channel'])
 groupByDetector = fullData.groupby("detector")
+posData = groupByDetector.get_group(config.detectorId.pos)
 negData = groupByDetector.get_group(config.detectorId.neg)
+
+
+plt.figure()
+plt.title("pos times")
+n, bins, patches = plt.hist(posData["time_ns"], 100)
+plt.show()
+
+plt.figure()
+plt.title("neg times")
+n, bins, patches = plt.hist(negData["time_ns"], 100)
+plt.show()
 
 def gaus(x,a,x0,sigma):
     return a*exp(-(x-x0)**2/(2*sigma**2))
 
 def calculateTimeSums(data, detectorId):
     #Calculates the time sums for each layer of the positive or negative detector
-    groupByNumber = data.groupby(b'GroupNumber')
+    groupByNumber = data.groupby('GroupNumber')
     groups = { name: groupByNumber.get_group(name).groupby('channel') for (name, _) in groupByNumber }
     uData = calculateChannelTimesums(groups, config.channelId.u1, config.channelId.u2)
     vData = calculateChannelTimesums(groups, config.channelId.v1, config.channelId.v2)
@@ -46,7 +70,7 @@ def calculateTimeSums(data, detectorId):
     #U DATA
     plt.figure()
     plt.title("U layer")
-    n, bins, patches = plt.hist(uData, 80, (100, 140))
+    n, bins, patches = plt.hist(uData, 80, (0, 200))
     #bins is the edges of each bin, and therefore one extra length
     bins = (bins[:-1] + bins[1:])/2
     #Initial guesses
@@ -60,7 +84,7 @@ def calculateTimeSums(data, detectorId):
     #V DATA  
     plt.figure()
     plt.title("V layer")
-    n, bins, patches = plt.hist(vData, 80, (100, 140))
+    n, bins, patches = plt.hist(vData, 80, (0, 200))
     #Get midpoint of the bins
     bins = (bins[:-1] + bins[1:])/2
     #Initial guesses
@@ -75,7 +99,7 @@ def calculateTimeSums(data, detectorId):
     #W DATA
     plt.figure()
     plt.title("W layer")
-    n, bins, patches = plt.hist(wData, 80, (100, 140))
+    n, bins, patches = plt.hist(wData, 80, (0, 200))
     bins = (bins[:-1] + bins[1:])/2
     #Initial guesses
     a_w = np.amax(n)
@@ -85,10 +109,7 @@ def calculateTimeSums(data, detectorId):
     plt.plot(bins, gaus(bins,*wFit), 'ro:')
     
     plt.show()
-    return (uFit, vFit, wFit)
-
-
-def calculateEvents(data, uFit, vFit, wFit):  
+    
     u_upper = uFit[1]+2*(uFit[-1]) 
     u_lower = uFit[1]-2*(uFit[-1])
     v_upper = vFit[1]+2*(vFit[-1]) 
@@ -96,12 +117,17 @@ def calculateEvents(data, uFit, vFit, wFit):
     w_upper = wFit[1]+2*(wFit[-1]) 
     w_lower = wFit[1]-2*(wFit[-1])
     
+    return ((u_lower, u_upper), (v_lower, v_upper), (w_lower, w_upper))
+
+def calculateGroups(data, posBounds, negBounds):
+    groupByNumber = data.groupby('GroupNumber')
+    groups = [ (groupNumber, groupByNumber.get_group(groupNumber).groupby('channel')) for (groupNumber, _) in groupByNumber ]
+    return [ Group(calculateGroupEvents(group, groupNumber, posBounds, negBounds), groupNumber) for (groupNumber, group) in groups ]
+
+def calculateEvents(data, bounds):  
     #Calculates the time sums for each layer of the positive or negative detector
     groupByNumber = data.groupby('GroupNumber')
-    #print(groupByNumber)
     groups = { name: groupByNumber.get_group(name).groupby('channel') for (name, _) in groupByNumber }
-    #print(groups)
-    bounds = (u_lower, u_upper, v_lower, v_upper, w_lower, w_upper)
     data = calculateChannelEvents(groups, bounds)
     return data
     
@@ -112,7 +138,7 @@ def calculateChannelEvents(data, bounds):
 def calculateChannelTimesums(data, channel1, channel2):
     #Calculates all possible combinations of channel1 + channel2 within a group
     return list(itertools.chain.from_iterable( calculateGroupTimesums(data, channel1, channel2, groupNumber) 
-        for groupNumber, data in data.items() if groupNumber < 100000 ))
+        for groupNumber, data in data.items() if groupNumber < 10000 ))
 
 def calculateGroupTimesums(groupData, channel1, channel2, groupNumber):
     #Considers all possible MCP and layer combinations
@@ -149,13 +175,14 @@ def headOrNone(list):
     else:
         return None
 
-def getEvent(u, v, w, groupNumber, DetectorID):
-    return Event(headOrNone(u), headOrNone(v), headOrNone(w), groupNumber, DetectorID)
+def getEvent(u, v, w, groupNumber, detectorID, particleType):
+    return Event(headOrNone(u), headOrNone(v), headOrNone(w), groupNumber, int(detectorID), int(particleType))
 
-def getDiffsForMcp(m, groupData, channel1, channel2, lower, upper):
-    diffs = [ getDiffs(t1[0] - m, t2[0] - m, lower, upper)
-            for t1 in readGroup(groupData, channel1).as_matrix(["time_ns"])
-            for t2 in readGroup(groupData, channel2).as_matrix(["time_ns"]) ]
+def getDiffsForMcp(m, detector, groupData, channel1, channel2, bounds):
+    diffs = [ getDiffs(t1 - m, t2 - m, bounds[0], bounds[1])
+            for [t1, d1] in readGroup(groupData, channel1).as_matrix(["time_ns", "detector"])
+            for [t2, d2] in readGroup(groupData, channel2).as_matrix(["time_ns", "detector"]) 
+            if d1 == detector and d2 == detector]
     
     return [ d for d in diffs if d != None ]
     
@@ -166,37 +193,45 @@ def readGroup(groupedData, key):
     except:
         return pd.DataFrame()
 
-def calculateGroupEvents(groupData, groupNumber, bounds):
-    u_lower, u_upper, v_lower, v_upper, w_lower, w_upper = bounds
+def boundsForDet(detectorId, posBounds, negBounds, layerNumber):
+    if detectorId == config.detectorId.pos:
+        return posBounds[layerNumber]
+    else:
+        return negBounds[layerNumber]
+
+def calculateGroupEvents(groupData, groupNumber, posBounds, negBounds):
     mcpData = readGroup(groupData, config.channelId.mcp)
     #print(mcpData)
     #if not mcpData.empty:
         #print(mcpData['detector']) 
-    diffs = [(getDiffsForMcp(m[0], groupData, config.channelId.u1, config.channelId.u2, u_lower, u_upper),
-                 getDiffsForMcp(m[0], groupData, config.channelId.v1, config.channelId.v2, v_lower, v_upper),
-                 getDiffsForMcp(m[0], groupData, config.channelId.w1, config.channelId.w2, w_lower, w_upper))
-        for m in mcpData.as_matrix(["time_ns"])]
+    diffs = [(getDiffsForMcp(m[0], m[2], groupData, config.channelId.u1, config.channelId.u2, boundsForDet(m[2], posBounds, negBounds, 0)),
+                 getDiffsForMcp(m[0], m[2], groupData, config.channelId.v1, config.channelId.v2, boundsForDet(m[2], posBounds, negBounds, 1)),
+                 getDiffsForMcp(m[0], m[2], groupData, config.channelId.w1, config.channelId.w2, boundsForDet(m[2], posBounds, negBounds, 2)),
+                 m[0], m[1], m[2])
+        for m in mcpData.as_matrix(["time_ns", "particle_type", "detector"])]
     
-    return [getEvent(u, v, w, groupNumber, mcpData['detector'].values[0]) for (u, v, w) in diffs if channelCount(u, v, w) > 1]
+    
+    return [getEvent(u, v, w, mcpTime, det, pType) 
+        for (u, v, w, mcpTime, pType, det) in diffs if pType == ParticleType.Ion1 or channelCount(u, v, w) > 1]
     #EVENTS SHOULD INCLUDE DETECTOR BUT ITS BRoKEN fOR NOW,
     #IMPLEMENT WHEN ANALYSING ALL DATA
 
     
     #Event = namedtuple('Event', ['t1', 't2', 'timesum', 'c1', 'c2', 'groupNumber', 'detector'])
 
-def convertLayerPosition(Events, neg_pitch, gap, offset):
+def convertLayerPosition(events, neg_pitch, gap, offset):
     #Want to process information for each array in xEvents 
     U_layer = []
     V_layer = []
     W_layer = []
     
     #groups = []
-    n = len(Events)
+    n = len(events)
     i = 0
     while (i < (n-1)):
         i = i+1
         if events[i].u != None:
-            u = (neg_pitch[0]/2)*(Events[i].u[0] - Events[i].u[1])+offset[0]
+            u = (neg_pitch[0]/2)*(events[i].u[0] - events[i].u[1])+offset[0]
             #U_nogap.append(u)
             if (u < -1):
                 U = u - (gap[0]/2)
@@ -208,7 +243,7 @@ def convertLayerPosition(Events, neg_pitch, gap, offset):
             u = 0
             U_layer.append(u)
         if events[i].v != None:
-            v = (neg_pitch[1]/2)*(Events[i].v[0] - Events[i].v[1])+offset[1]
+            v = (neg_pitch[1]/2)*(events[i].v[0] - events[i].v[1])+offset[1]
             #V_nogap.append(V)
             if (v < 1):
                 V = v - (gap[1]/2)
@@ -220,7 +255,7 @@ def convertLayerPosition(Events, neg_pitch, gap, offset):
             v = 0
             V_layer.append(v)
         if events[i].w != None:
-            w = (neg_pitch[2]/2)*(Events[i].w[0] - Events[i].w[1])+offset[2]
+            w = (neg_pitch[2]/2)*(events[i].w[0] - events[i].w[1])+offset[2]
             if (w < -1):
                 W = w - (gap[2]/2)
                 W_layer.append(W)
@@ -292,49 +327,37 @@ def convertCartesian(layer_info):
     plt.plot(VW_x, VW_y, 'bx', label='VW')
     plt.plot(0,0)
     plt.show()
-
-    X = np.concatenate((UV_x,UW_x),axis=0)
-    X = np.concatenate((X,VW_x),axis=0)
-    Y = np.concatenate((UV_y,UW_y),axis=0)
-    Y = np.concatenate((Y,VW_y),axis=0)
-
-    
-    
-    plt.figure()
-    plt.hist2d(X, Y, bins=150)
-    cbar = plt.colorbar()
-    cbar.ax.set_ylabel('Counts')
-    plt.show()
     return UV, UW, VW
+
 
 #calculateCartesianPosition(U_layer, V_layer, W_layer):
     #Calculate the UV UW and VW cooridinates for each group. 
     
    # return
-    
+def loadOrCalculate(name, fn):
+    if os.path.isfile(name):
+        with open(name, 'rb') as f:
+            return pickle.load(f)
+    else:
+        result = fn()
+        with open(name, 'wb') as f:
+            pickle.dump(result, f)
+        return result
 #%%
 #Calculate the timesums for each channel
-#uFit, vFit, wFit = calculateTimeSums(negData, config.detectorId.neg)
-uFit, vFit, wFit = ([  18.051664,    119.28900662,    1.6100861 ],
-                    [  14.79397714,  120.46929475,    1.975484  ],
-                    [  11.07192193,  114.65234937,    2.89525712])
-print("Peak Height, Peak position, Standard Deviation")
-print(np.array([uFit, vFit, wFit]))
+posBounds = loadOrCalculate('posBounds.pickle', lambda: calculateTimeSums(posData, config.detectorId.pos))
+negBounds = loadOrCalculate('negBounds.pickle', lambda: calculateTimeSums(negData, config.detectorId.neg))
+print("Bounds")
+print(np.array(posBounds))
+print(np.array(negBounds))
 #Find the limits of our timesums
 #For now this is within 3 sd of our timesums
 #%%
 #Now we want to calculate the events
 #Make sure that the layer information is within 3 standard deviations of the timesum    
-events = None
-if os.path.isfile('events.pickle'):
-    with open('events.pickle', 'rb') as f:
-        events = pickle.load(f)
-else:
-    events = calculateEvents(negData, uFit, vFit, wFit)
-    with open('events.pickle', 'wb') as f:
-        pickle.dump(events, f)
-        
-#print(events)
+groups = loadOrCalculate('groups.pickle', lambda: calculateGroups(fullData, posBounds, negBounds))
+
+print(groups)
 
 def compareCoords(coord1, coord2, name1, name2, axisName):    
     points = np.array(coord1) - coord2
@@ -358,7 +381,7 @@ def compareCoords(coord1, coord2, name1, name2, axisName):
     return (uFit[1], abs(uFit[2]))
     
 
-def analyseLayerPositions(neg_pitch, neg_offset, gap):
+def analyseLayerPositions(events, neg_pitch, neg_offset, gap):
     print(neg_pitch)
     print(gap)
     print(neg_offset)
@@ -390,30 +413,4 @@ def analyseLayerPositions(neg_pitch, neg_offset, gap):
     
     UV, UW, VW = convertCartesian(layer_info)
     print("converted to cartesian")
-        
-    return (
-        compareCoords(UV[0], VW[0], "UV", "VW", "x"),
-        compareCoords(UW[0], VW[0], "UW", "VW", "x"),
-        compareCoords(UV[1], UW[1], "UV", "UW", "y"),
-        compareCoords(UV[1], VW[1], "UV", "VW", "y"),
-        compareCoords(UW[1], VW[1], "UW", "VW", "y")
-    )
     
-    
-#%% loop over co-ordinates
-neg_pitches = ([0.56], [0.58], [0.6])
-neg_offsets = ([-0.46], [2-0.01], [-0.5-0.143])
-gaps = ([8.407], [7.385], [7.8789])
-
-
-print("generating param sets")
-param_sets = [((np_0, np_1, np_2), (no_0, no_1, no_2), (g_0, g_1, g_2))
-    for np_0 in neg_pitches[0] for np_1 in neg_pitches[1] for np_2 in neg_pitches[2]
-    for no_0 in neg_offsets[0] for no_1 in neg_offsets[1] for no_2 in neg_offsets[2]
-    for g_0 in gaps[0] for g_1 in gaps[1] for g_2 in gaps[2]]
-
-all_fits = [(analyseLayerPositions(neg_pitch, neg_offset, gap), neg_pitch, neg_offset, gap)
-    for neg_pitch, neg_offset, gap in param_sets]
-  
-
-

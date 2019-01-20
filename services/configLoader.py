@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import json
-from enum import Enum
+from enum import IntEnum
 from model.config import Config, Channel
 
 def load(file):
@@ -10,10 +10,10 @@ def load(file):
     channelIds = set(x["channel"] for x in data["channels"])
     detectorIds = set(x["detector"] for x in data["channels"])
     
-    channelId = Enum("ChannelId", list(channelIds))
-    detectorId = Enum("DetectorId", list(detectorIds))
+    channelId = IntEnum("ChannelId", list(channelIds))
+    detectorId = IntEnum("DetectorId", list(detectorIds))
     channels = {c["id"]: Channel(channelId[c["channel"]], detectorId[c["detector"]]) for c in data["channels"]}
     
         
     
-    return Config(channelId, detectorId, channels)
+    return Config(channelId, detectorId, channels, data["properties"], data["particleTimes"])

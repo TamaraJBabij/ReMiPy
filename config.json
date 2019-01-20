@@ -14,5 +14,30 @@
         { "id": 28, "detector": "neg", "channel": "v2" },
         { "id": 29, "detector": "neg", "channel": "w1" },
         { "id": 30, "detector": "neg", "channel": "w2" }
-    ]
+    ],
+    "particleTimes": {
+        "elemParticle": {
+            "min": 0,
+            "max": 4000
+        },
+        "ion1": {
+            "min": 23000,
+            "max": 28000
+        },
+        "ion2": {
+            "min": 17000,
+            "max": 23000
+        }
+    },
+    "properties": {
+        "neg": {
+                "pitches": [0.56, 0.58, 0.6],
+                "offsets": [-0.46,1.99,-0.643],
+                "gaps": [8.407, 7.385, 7.8789]
+        },
+        "pos": {
+                "pitches": [0.56, 0.58, 0.6],
+                "offsets": [-0.46,1.99,-0.643]
+        }
+    }
 }
